@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+
+# Virtual Environment
+venv/
+.env/
+ENV/
+*.env
+
+# Django specific
+*.log
+db.sqlite3
+media/
+staticfiles/
+
+# IDEs
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Migrations
+*/migrations/__pycache__/
+*/migrations/*.pyc
+*/migrations/*.pyo
+*/migrations/*.pyd
+*/migrations/*.py[cod]
+
+# MySQL
+*.sql
+*.bak
+
+# Others
+node_modules/
+coverage/
+htmlcov/
+*.pot
+*.mo
+
+# Backup files
+*.bak
+*.swp
+*.tmp
+*.old
