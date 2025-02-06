@@ -1,152 +1,163 @@
 from django.db import models
+from django.contrib.auth.models import User
 
-# Role
+# Partie Utilisateur
 class Role(models.Model):
-    id_role = models.AutoField(primary_key=True)
-    libelle_role = models.CharField(max_length=50, unique=True)
-    descript_role = models.TextField(null=True, blank=True)
+    libelleRole = models.CharField(max_length=50,null=False)
+    descriptRole = models.TextField(null=True)
 
     def __str__(self):
-        return self.libelle_role
+        return self.libelleRole
 
-    class Meta:
-        ordering = ["libelle_role"]
-        verbose_name = "Rôle"
-        verbose_name_plural = "Rôles"
-
-# Utilisateur
-class Utilisateur(models.Model):
-    id_user = models.AutoField(primary_key=True)
-    nom_user = models.CharField(max_length=100)
-    prenom_user = models.CharField(max_length=100)
-    email_user = models.EmailField(unique=True)
-    tel_user = models.CharField(max_length=20, unique=True)
-    role = models.ForeignKey(Role, on_delete=models.PROTECT, null=True)
+class CustomUser(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    role = models.ForeignKey(Role, on_delete=models.CASCADE, null=True)
+    indicateurUser = models.CharField(max_length=5,default='+225',null=True)
+    telUser = models.CharField(max_length=10,null=False)
 
     def __str__(self):
-        return f"{self.nom_user} {self.prenom_user}"
+        return f'{self.user.email} - {self.role.libelleRole}'
 
-    class Meta:
-        ordering = ["nom_user", "prenom_user"]
-        verbose_name = "Utilisateur"
-        verbose_name_plural = "Utilisateurs"
-
-# Type de boutique
+# Partie Boutique
 class Type(models.Model):
-    id_type = models.AutoField(primary_key=True)
-    libelle_type = models.CharField(max_length=100, unique=True)
-    descript_type = models.TextField(null=True, blank=True)
-    status = models.BooleanField(default=True)
-    date_ajout = models.DateTimeField(auto_now_add=True)
-    date_modif = models.DateTimeField(auto_now=True)
+    libelleType = models.CharField(max_length=50,null=False)
+    descriptType = models.TextField(null=True)
+    status = models.BooleanField(default=True,null=False)
+    dateAjout = models.DateTimeField(auto_now_add=True)
+    dateModif = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.libelle_type
+        return self.libelleType
 
-# Boutique
+
 class Boutique(models.Model):
-    id_boutique = models.AutoField(primary_key=True)
-    nom_shop = models.CharField(max_length=100, unique=True)
-    descript_shop = models.TextField(null=True, blank=True)
-    adresse_shop = models.CharField(max_length=255, null=True, blank=True)
-    status = models.BooleanField(default=True)
-    date_ajout = models.DateTimeField(auto_now_add=True)
-    date_modif = models.DateTimeField(auto_now=True)
-    manager = models.ForeignKey(Utilisateur, on_delete=models.PROTECT, null=True)
-    type = models.ForeignKey(Type, on_delete=models.PROTECT, null=True)
+    nomShop = models.CharField(max_length=50,null=False)
+    descriptShop = models.TextField(null=True)
+    adresseShop = models.CharField(max_length=100,null=True)
+    status = models.BooleanField(default=True,null=False)
+    dateAjout = models.DateTimeField(auto_now_add=True)
+    dateModif = models.DateTimeField(auto_now=True)
+    manager = models.ForeignKey(CustomUser, on_delete=models.CASCADE, null=True)
+    types = models.ForeignKey(Type, on_delete=models.CASCADE, null=True)
 
     def __str__(self):
-        return self.nom_shop
+        return self.nomShop
 
 # Client
 class Client(models.Model):
-    id_client = models.AutoField(primary_key=True)
-    nom_client = models.CharField(max_length=100)
-    prenom_client = models.CharField(max_length=100)
-    email_client = models.EmailField(unique=True)
-    telephone_client = models.CharField(max_length=20, unique=True)
-    adresse_client = models.TextField(null=True, blank=True)
+    nomClient = models.CharField(max_length=50,null=False)
+    emailClient = models.EmailField(unique=True,null=False)
+    telClient = models.CharField(max_length=20, unique=True)
+    adresseClient = models.TextField(null=True, blank=True)
+    boutique = models.ForeignKey(Boutique,on_delete=models.CASCADE,null=False)
+    status = models.BooleanField(default=True,null=False)
+    dateAjout = models.DateTimeField(auto_now_add=True)
+    dateModif = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.nom_client} {self.prenom_client}"
+        return f"{self.nomClient} {self.emailClient}"
 
 # Catégorie
 class Categorie(models.Model):
-    id_categorie = models.AutoField(primary_key=True)
     libelle_categorie = models.CharField(max_length=100, unique=True)
-    date_ajout = models.DateTimeField(auto_now_add=True)
-    date_modif = models.DateTimeField(auto_now=True)
+    status = models.BooleanField(default=True,null=False)
+    dateAjout = models.DateTimeField(auto_now_add=True)
+    dateModif = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.libelle_categorie
 
 # Produit
 class Produit(models.Model):
-    id_produit = models.AutoField(primary_key=True)
-    libelle_produit = models.CharField(max_length=100, unique=True)
-    description_produit = models.TextField(null=True, blank=True)
-    prix_produit = models.DecimalField(max_digits=10, decimal_places=2)
-    stock_produit = models.IntegerField(default=0)
-    date_ajout = models.DateTimeField(auto_now_add=True)
-    date_modif = models.DateTimeField(auto_now=True)
+    idProduit = models.CharField(max_length=50,primary_key=True,null=False,unique=True)
+    libelleProduit = models.CharField(max_length=100, unique=True)
+    descriptProduit = models.TextField(null=True, blank=True)
+    marqueProduit = models.CharField(max_length=30, null=True)
+    prixProduit = models.DecimalField(max_digits=15, decimal_places=2,null=True)
+    stockProduit = models.IntegerField(default=0)
+    seuilProduit = models.SmallIntegerField(null=False,default=0)
+    image = models.ImageField(upload_to='produits/', null=True, blank=True)
+    status = models.BooleanField(default=True,null=False)
+    dateAjout = models.DateTimeField(auto_now_add=True)
+    dateModif = models.DateTimeField(auto_now=True)
     categorie = models.ForeignKey(Categorie, on_delete=models.PROTECT, null=True)
-    fournisseurs = models.ManyToManyField('Fournisseur', related_name="produits")
+    boutique = models.ForeignKey(Boutique,on_delete=models.PROTECT,null=False)
+
 
     def __str__(self):
         return self.libelle_produit
 
 # Fournisseur
 class Fournisseur(models.Model):
-    id_fournisseur = models.AutoField(primary_key=True)
-    libelle_fournisseur = models.CharField(max_length=100, unique=True)
-    contact_fournisseur = models.CharField(max_length=20, null=True, blank=True, unique=True)
-    email_fournisseur = models.EmailField(null=True, blank=True, unique=True)
-    adresse_fournisseur = models.TextField(null=True, blank=True)
+    nomFournisseur = models.CharField(max_length=100, unique=True)
+    contactFournisseur = models.CharField(max_length=20, null=True, blank=True, unique=True)
+    emailFournisseur = models.EmailField(null=True, blank=True, unique=True)
+    adresseFournisseur = models.TextField(null=True, blank=True)
+    status = models.BooleanField(default=True,null=False)
+    dateAjout = models.DateTimeField(auto_now_add=True)
+    dateModif = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.libelle_fournisseur
+        return self.nomFournisseur
 
-# Magasin
-class Magasin(models.Model):
-    id_magasin = models.AutoField(primary_key=True)
-    libelle_magasin = models.CharField(max_length=100, unique=True)
-    adresse_magasin = models.TextField(null=True, blank=True)
-    telephone_magasin = models.CharField(max_length=20, null=True, blank=True, unique=True)
+class Facture(models.Model):
+    idFact = models.CharField(primary_key=True,null=False,unique=True,max_length=50)
+    numFact = models.CharField(max_length=100, null=True)
+    prixHTFact = models.DecimalField(max_digits=15, decimal_places=2,null=True)
+    tvaFact = models.DecimalField(max_digits=3, decimal_places=2,null=True)
+    reducFact = models.DecimalField(max_digits=3, decimal_places=2,null=True)
+    statePaieFact = models.CharField(max_length=20,null=True)
+    dateEchFact = models.DateField(null=True)
+    status = models.BooleanField(default=True,null=False)
+    dateAjout = models.DateTimeField(auto_now_add=True)
+    dateModif = models.DateTimeField(auto_now=True)
+    client = models.ForeignKey(Client,on_delete=models.CASCADE)
 
     def __str__(self):
-        return self.libelle_magasin
-
-# Stock
-class Stock(models.Model):
-    id_stock = models.AutoField(primary_key=True)
-    quantite = models.IntegerField(default=0)
-    date_ajout = models.DateTimeField(auto_now_add=True)
+        return self.numFact
+    
+class FactureItem(models.Model):
+    quantiteFactI = models.SmallIntegerField(null=False)
+    prixFactI = models.DecimalField(max_digits=15, decimal_places=2,null=True)
     produit = models.ForeignKey(Produit, on_delete=models.CASCADE)
-    magasin = models.ForeignKey(Magasin, on_delete=models.CASCADE)
-    fournisseur = models.ForeignKey(Fournisseur, on_delete=models.PROTECT)
+    facture = models.ForeignKey(Facture, on_delete=models.CASCADE)
 
     def __str__(self):
-        return f"{self.produit.libelle_produit} - {self.magasin.libelle_magasin} ({self.quantite})"
-
-# Achat
-class Achat(models.Model):
-    id_achat = models.AutoField(primary_key=True)
-    date_achat = models.DateTimeField(auto_now_add=True)
-    client = models.ForeignKey(Client, on_delete=models.CASCADE)
+        return f"{self.produit.libelleProduit} - {self.facture.numFact}"
+    
+class Model(models.Model):
+    libelleMod = models.CharField(max_length=50)
 
     def __str__(self):
-        return f"Achat {self.id_achat} - {self.client.nom_client}"
+        return f"{self.libelleMod}"
 
-# Détail Achat (Gestion des produits achetés)
-class DetailAchat(models.Model):
-    id_detail = models.AutoField(primary_key=True)
-    achat = models.ForeignKey(Achat, on_delete=models.CASCADE, related_name="details")
-    produit = models.ForeignKey(Produit, on_delete=models.PROTECT)
-    quantite = models.PositiveIntegerField()
-    prix_unitaire = models.DecimalField(max_digits=10, decimal_places=2)
+class Paiement(models.Model):
+    numPaie = models.CharField(max_length=50)
+    datePaie = models.DateField(null=True)
+    montantPaie = models.DecimalField(max_digits=15, decimal_places=2,null=True)
+    refTransPaie = models.CharField(max_length=50)
+    facture = models.ForeignKey(Facture, on_delete=models.CASCADE)
+    modePaie = models.ForeignKey(Model, on_delete=models.CASCADE)
+    status = models.BooleanField(default=True,null=False)
+    dateAjout = models.DateTimeField(auto_now_add=True)
+    dateModif = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.achat.id_achat} - {self.produit.libelle_produit} ({self.quantite})"
+        return f"{self.numPaie} - {self.facture.numFact}"
 
-    class Meta:
-        unique_together = ('achat', 'produit')
+
+class Reapprovisionnement(models.Model):
+    numReap = models.CharField(max_length=50)
+    dateReap = models.DateField(null=True)
+    quantiteReap = models.SmallIntegerField(null=False)
+    prixReap = models.DecimalField(max_digits=15, decimal_places=2,null=True)
+    fournisseur = models.ForeignKey(Fournisseur, on_delete=models.CASCADE)
+    status = models.BooleanField(default=True,null=False)
+    dateAjout = models.DateTimeField(auto_now_add=True)
+    dateModif = models.DateTimeField(auto_now=True)
+
+class ReapItem(models.Model):
+    quantiteReapI = models.SmallIntegerField(null=False)
+    prixReap = models.DecimalField(max_digits=15, decimal_places=2,null=True)
+    produit = models.ForeignKey(Produit, on_delete=models.CASCADE)
+    reappro = models.ForeignKey(Reapprovisionnement, on_delete=models.CASCADE)

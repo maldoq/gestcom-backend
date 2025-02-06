@@ -1,73 +1,56 @@
-from rest_framework import generics
-from .models import Categorie, Produit, Fournisseur, Magasin, Stock, Commande, LigneCommande
-from .serializers import CategorieSerializer, ProduitSerializer, FournisseurSerializer, MagasinSerializer, StockSerializer, CommandeSerializer, LigneCommandeSerializer
+from rest_framework import generics, status
+from rest_framework.response import Response
+from rest_framework.authtoken.models import Token
+from rest_framework.views import APIView
+from django.contrib.auth.models import User
+from django.contrib.auth import authenticate
+from .models import CustomUser, Role
+from .serializers import CustomUserSerializer, RoleSerializer
+from rest_framework.permissions import IsAuthenticated
 
-# CRUD pour Role
-class RoleListCreate(generics.ListCreateAPIView):
-    queryset = Role.objects.all()
-    serializer_class = RoleSerializer
+# User Registration
+class RegisterView(generics.CreateAPIView):
+    queryset = User.objects.all()
 
-class RoleDetail(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Role.objects.all()
-    serializer_class = RoleSerializer
+    def post(self, request, *args, **kwargs):
+        username = request.data.get('username')
+        password = request.data.get('password')
+        email = request.data.get('email')
+        tel_user = request.data.get('telUser')
+        role_id = request.data.get('role')
 
-# CRUD pour Utilisateur
-class CustomUserListCreate(generics.ListCreateAPIView):
-    queryset = CustomUser.objects.all()
-    serializer_class = CustomUserSerializer
+        if not (username and password and email):
+            return Response({'error': 'Please provide all required fields'}, status=status.HTTP_400_BAD_REQUEST)
 
-class CustomUserDetail(generics.RetrieveUpdateDestroyAPIView):
-    queryset = CustomUser.objects.all()
-    serializer_class = CustomUserSerializer
+        if User.objects.filter(username=username).exists():
+            return Response({'error': 'Username already exists'}, status=status.HTTP_400_BAD_REQUEST)
 
-# CRUD pour Type
-class TypeListCreate(generics.ListCreateAPIView):
-    queryset = Type.objects.all()
-    serializer_class = TypeSerializer
+        user = User.objects.create_user(username=username, password=password, email=email)
+        role = Role.objects.get(id=role_id) if role_id else None
+        custom_user = CustomUser.objects.create(user=user, telUser=tel_user, role=role)
 
-class TypeDetail(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Type.objects.all()
-    serializer_class = TypeSerializer
+        token, created = Token.objects.get_or_create(user=user)
+        return Response({'token': token.key, 'user': CustomUserSerializer(custom_user).data}, status=status.HTTP_201_CREATED)
 
-# CRUD pour Boutique
-class BoutiqueListCreate(generics.ListCreateAPIView):
-    queryset = Boutique.objects.all()
-    serializer_class = BoutiqueSerializer
+# User Login
+class LoginView(APIView):
+    def post(self, request):
+        username = request.data.get('username')
+        password = request.data.get('password')
 
-class BoutiqueDetail(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Boutique.objects.all()
-    serializer_class = BoutiqueSerializer
+        if not username or not password:
+            return Response({'error': 'Please provide both username and password'}, status=status.HTTP_400_BAD_REQUEST)
 
-class CategorieListCreate(generics.ListCreateAPIView):
-    queryset = Categorie.objects.all()
-    serializer_class = CategorieSerializer
+        user = authenticate(username=username, password=password)
+        if not user:
+            return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
 
+        token, created = Token.objects.get_or_create(user=user)
+        return Response({'token': token.key, 'user_id': user.id, 'username': user.username}, status=status.HTTP_200_OK)
 
-from django.urls import path
+# Protected View Example
+class ProfileView(APIView):
+    permission_classes = [IsAuthenticated]
 
-
-urlpatterns = [
-    # Routes pour Client
-    path('clients/', ClientListCreate.as_view(), name='client-list-create'),
-    path('clients/<str:pk>/', ClientDetail.as_view(), name='client-detail'),
-
-    # Routes pour Référence
-    path('references/', ReferenceListCreate.as_view(), name='reference-list-create'),
-    path('references/<str:pk>/', ReferenceDetail.as_view(), name='reference-detail'),
-
-    # Routes pour Réception
-    path('receptions/', ReceptionListCreate.as_view(), name='reception-list-create'),
-    path('receptions/<str:pk>/', ReceptionDetail.as_view(), name='reception-detail'),
-
-    # Routes pour Facture
-    path('factures/', FactureListCreate.as_view(), name='facture-list-create'),
-    path('factures/<str:pk>/', FactureDetail.as_view(), name='facture-detail'),
-
-    # Routes pour Facturation
-    path('facturations/', FacturationListCreate.as_view(), name='facturation-list-create'),
-    path('facturations/<str:pk>/', FacturationDetail.as_view(), name='facturation-detail'),
-
-    # Routes pour Achat
-    path('achats/', AchatListCreate.as_view(), name='achat-list-create'),
-    path('achats/<str:pk>/', AchatDetail.as_view(), name='achat-detail'),
-]
+    def get(self, request):
+        return Response({'username': request.user.username, 'email': request.user.email})
