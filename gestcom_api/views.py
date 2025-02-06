@@ -35,16 +35,24 @@ class RegisterView(generics.CreateAPIView):
 # User Login
 class LoginView(APIView):
     def post(self, request):
-        username = request.data.get('username')
+        email = request.data.get('email')
         password = request.data.get('password')
 
-        if not username or not password:
-            return Response({'error': 'Please provide both username and password'}, status=status.HTTP_400_BAD_REQUEST)
+        if not email or not password:
+            return Response({'error': 'Veuillez renseigner l\'email et le mot de passe'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Find user by email
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response({'error': 'L\'email n\'existe pas'}, status=status.HTTP_401_UNAUTHORIZED)
 
-        user = authenticate(username=username, password=password)
+        # Authenticate using username (since Django's default `authenticate` uses `username`)
+        user = authenticate(username=user.username, password=password)
         if not user:
-            return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response({'error': 'L\'utilisateur n\'existe pas, veuillez en renseigner un valide'}, status=status.HTTP_401_UNAUTHORIZED)
 
+        # Generate or retrieve token
         token, created = Token.objects.get_or_create(user=user)
         return Response({'token': token.key, 'user_id': user.id, 'username': user.username}, status=status.HTTP_200_OK)
 
