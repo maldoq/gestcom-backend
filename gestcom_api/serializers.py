@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import CustomUser, Role
 from django.contrib.auth.models import User
-from .models import Boutique
+from .models import Boutique, Produit, CustomUser, Role, Fournisseur, Facture, FactureItem, Paiement
 
 class RoleSerializer(serializers.ModelSerializer):
     class Meta:
@@ -14,9 +14,34 @@ class CustomUserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CustomUser
-        fields = ['id', 'user', 'telUser', 'role']
+        fields = '__all__'
 
 class BoutiqueSerializer(serializers.ModelSerializer):
     class Meta:
         model = Boutique
         fields = '__all__'
+
+class ProduitSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Produit
+        fields = '__all__'  # Inclut tous les champs du modèle Produit
+
+class FournisseurSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Fournisseur
+        fields = '__all__'  # Include all fields from the Fournisseur model
+
+class FactureSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Facture
+        fields = '__all__'  # Include all fields from the Facture model
+
+class FactureItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FactureItem
+        fields = '__all__'  # Include all fields from the FactureItem model
+
+class PaiementSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Paiement
+        fields = '__all__'  # Include all fields from the Paiement model
