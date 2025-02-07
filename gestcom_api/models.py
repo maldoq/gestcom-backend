@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from .models import Boutique
 
 # Partie Utilisateur
 class Role(models.Model):
@@ -161,3 +162,16 @@ class ReapItem(models.Model):
     prixReap = models.DecimalField(max_digits=15, decimal_places=2,null=True)
     produit = models.ForeignKey(Produit, on_delete=models.CASCADE)
     reappro = models.ForeignKey(Reapprovisionnement, on_delete=models.CASCADE)
+
+class Client(models.Model):
+    idCli = models.AutoField(primary_key=True)
+    nomCli = models.CharField(max_length=100, null=False)
+    emailCli = models.EmailField(unique=True, null=False)
+    telCli = models.CharField(max_length=20, null=False)
+    boutique = models.ForeignKey(Boutique, on_delete=models.CASCADE, related_name="clients")
+    dateAjout = models.DateTimeField(auto_now_add=True)
+    dateModif = models.DateTimeField(auto_now=True)
+    status = models.BooleanField(default=True)  # Actif par défaut
+
+    def __str__(self):
+        return self.nomCli
