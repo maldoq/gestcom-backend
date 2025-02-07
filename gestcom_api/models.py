@@ -161,3 +161,14 @@ class ReapItem(models.Model):
     prixReap = models.DecimalField(max_digits=15, decimal_places=2,null=True)
     produit = models.ForeignKey(Produit, on_delete=models.CASCADE)
     reappro = models.ForeignKey(Reapprovisionnement, on_delete=models.CASCADE)
+
+class Boutique(models.Model):
+    nom = models.CharField(max_length=100, unique=True, null=False)
+    adresse = models.CharField(max_length=255, null=False)
+    description = models.TextField(null=True, blank=True)
+    logo = models.ImageField(upload_to='logos/', null=True, blank=True)
+    proprietaire = models.ForeignKey(User, on_delete=models.CASCADE, related_name="boutiques")
+    modes_paiement = models.JSONField(default=list)  # Liste des modes de paiement acceptés
+
+    def __str__(self):
+        return self.nom
