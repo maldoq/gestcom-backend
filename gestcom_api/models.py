@@ -110,8 +110,8 @@ class Facture(models.Model):
     statePaie_fact = models.CharField(max_length=20,null=True)
     dateEch_fact = models.DateField(null=True)
     status = models.BooleanField(default=True,null=False)
-    dateAjout = models.DateTimeField(auto_now_add=True)
-    dateModif = models.DateTimeField(auto_now=True)
+    date_ajout = models.DateTimeField(auto_now_add=True)
+    date_modif = models.DateTimeField(auto_now=True)
     client = models.ForeignKey(Client,on_delete=models.CASCADE)
     boutique = models.ForeignKey(Boutique,on_delete=models.PROTECT,null=False)
 
@@ -141,8 +141,8 @@ class Paiement(models.Model):
     facture = models.ForeignKey(Facture, on_delete=models.CASCADE)
     mode_paie = models.ForeignKey(Model, on_delete=models.CASCADE)
     status = models.BooleanField(default=True,null=False)
-    dateAjout = models.DateTimeField(auto_now_add=True)
-    dateModif = models.DateTimeField(auto_now=True)
+    date_ajout = models.DateTimeField(auto_now_add=True)
+    date_modif = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"{self.num_paie} - {self.facture.num_fact}"
@@ -154,9 +154,10 @@ class Reapprovisionnement(models.Model):
     quantite_reap = models.SmallIntegerField(null=False)
     prix_reap = models.DecimalField(max_digits=15, decimal_places=2,null=True)
     fournisseur = models.ForeignKey(Fournisseur, on_delete=models.CASCADE)
+    boutique = models.ForeignKey(Boutique,on_delete=models.PROTECT,null=False)
     status = models.BooleanField(default=True,null=False)
-    dateAjout = models.DateTimeField(auto_now_add=True)
-    dateModif = models.DateTimeField(auto_now=True)
+    date_ajout = models.DateTimeField(auto_now_add=True)
+    date_modif = models.DateTimeField(auto_now=True)
 
 class ReapItem(models.Model):
     quantite_reapI = models.SmallIntegerField(null=False)

@@ -2,6 +2,7 @@ from rest_framework import generics, status, viewsets
 from rest_framework import viewsets
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
+from django.core.exceptions import ValidationError
 from rest_framework.views import APIView
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
@@ -9,13 +10,23 @@ from django.core.mail import send_mail
 from rest_framework.decorators import action
 from .models import CustomUser, Role
 from .serializers import CustomUserSerializer
+from django.core.validators import EmailValidator, RegexValidator
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.permissions import IsAuthenticated
-from .models import Boutique, Produit, Fournisseur, Facture, Client, FactureItem, Paiement, Model
-from .serializers import BoutiqueSerializer,ProduitSerializer,FournisseurSerializer,FactureSerializer,FactureItemSerializer,PaiementSerializer
+from .models import Boutique, Produit, Fournisseur, Facture, Client, FactureItem, Paiement, Model, Reapprovisionnement
+from .serializers import BoutiqueSerializer,ProduitSerializer,FournisseurSerializer,FactureSerializer,FactureItemSerializer,PaiementSerializer, CustomUserSerializer, ReapprovisionnementSerializer
+import jwt
+from datetime import datetime, timedelta
+from django.conf import settings
+from django.core.cache import cache
 
 
-# Gestion des utilisateurs
+# Constantes
+MAX_LOGIN_ATTEMPTS = 5
+LOGIN_TIMEOUT = 300  # 5 minutes
+MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
+ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif']
+
 class UserViewSet(viewsets.ViewSet):
     """Gestion des utilisateurs : Inscription, Connexion, Profil et Mise à jour"""
 
@@ -29,18 +40,50 @@ class UserViewSet(viewsets.ViewSet):
         password = request.data.get('password')
         confirmation = request.data.get('confirmation')
 
+        # Validation des champs requis
         if not all([lastname, firstname, email, tel, password, confirmation]):
             return Response({'error': 'Veuillez fournir tous les champs requis'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Validation du mot de passe
+        try:
+            self.validate_password(password)
+        except ValidationError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         if password != confirmation:
             return Response({'error': 'Les mots de passe ne correspondent pas'}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Validation du téléphone
+        phone_regex = RegexValidator(
+            regex=r'^\+?1?\d{9,15}$',
+            message="Le numéro doit être au format: '+999999999'"
+        )
+        try:
+            phone_regex(tel)
+        except ValidationError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Validation de l'email
+        email_validator = EmailValidator()
+        try:
+            email_validator(email)
+        except ValidationError:
+            return Response({'error': 'Format d\'email invalide'}, status=status.HTTP_400_BAD_REQUEST)
+
         if User.objects.filter(email=email).exists():
             return Response({'error': 'Un compte avec cet email existe déjà'}, status=status.HTTP_400_BAD_REQUEST)
 
-        user = User.objects.create_user(username=email, email=email, password=password, first_name=firstname, last_name=lastname)
+        # Création de l'utilisateur
+        user = User.objects.create_user(
+            username=email,
+            email=email,
+            password=password,
+            first_name=firstname,
+            last_name=lastname
+        )
+
         role, _ = Role.objects.get_or_create(libelleRole="instaff")
-        custom_user = CustomUser.objects.create(user=user, tel=tel, role=role)
+        custom_user = CustomUser .objects.create(user=user, tel=tel, role=role)
 
         token, _ = Token.objects.get_or_create(user=user)
 
@@ -55,11 +98,23 @@ class UserViewSet(viewsets.ViewSet):
         if not email or not password:
             return Response({'error': 'Veuillez fournir un email et un mot de passe'}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Vérification du rate limiting
+        cache_key = f"login_attempts_{email}"
+        attempts = cache.get(cache_key, 0)
+
+        if attempts >= MAX_LOGIN_ATTEMPTS:
+            return Response({'error': 'Trop de tentatives de connexion. Veuillez réessayer dans 5 minutes.'}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+
         user = authenticate(username=email, password=password)
         if not user:
+            # Incrémentation du compteur d'échecs
+            cache.set(cache_key, attempts + 1, LOGIN_TIMEOUT)
             return Response({'error': 'Identifiants incorrects'}, status=status.HTTP_401_UNAUTHORIZED)
 
+        # Réinitialisation du compteur en cas de succès
+        cache.delete(cache_key)
         token, _ = Token.objects.get_or_create(user=user)
+
         return Response({'token': token.key, 'user_id': user.id, 'email': user.email}, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=['put'], permission_classes=[IsAuthenticated])
@@ -68,19 +123,44 @@ class UserViewSet(viewsets.ViewSet):
         user = request.user
         custom_user = user.customuser
 
-        user.last_name = request.data.get('lastname', user.last_name)
-        user.email = request.data.get('email', user.email)
-        password = request.data.get('password', None)
-        photo = request.data.get('photo', custom_user.photo)
+        lastname = request.data.get('lastname', user.last_name)
+        firstname = request.data.get('firstname', user.first_name)
+        email = request.data.get('email', user.email)
+        password = request.data.get('password')
+        photo = request.FILES.get('photo')
+
+        # Validation de l'email si modifié
+        if email != user.email:
+            email_validator = EmailValidator()
+            try:
+                email_validator(email)
+                if User.objects.filter(email=email).exists():
+                    return Response({'error': 'Cet email est déjà utilisé par un autre compte.'}, status=status.HTTP_400_BAD_REQUEST)
+            except ValidationError:
+                return Response({'error': 'Format d\'email invalide'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Validation et mise à jour de la photo
+        if photo:
+            try:
+                self.validate_image(photo)
+                custom_user.photo = photo
+                custom_user.save()
+            except ValidationError as e:
+                return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Mise à jour des informations utilisateur
+        user.last_name = lastname
+        user.first_name = firstname
+        user.email = email
 
         if password:
-            user.set_password(password)
+            try:
+                self.validate_password(password)
+                user.set_password(password)
+            except ValidationError as e:
+                return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         user.save()
-
-        if photo:
-            custom_user.photo = photo
-            custom_user.save()
 
         return Response({'message': 'Informations mises à jour avec succès.'}, status=status.HTTP_200_OK)
 
@@ -88,24 +168,60 @@ class UserViewSet(viewsets.ViewSet):
     def reset_password(self, request):
         """Réinitialisation du mot de passe"""
         email = request.data.get('email')
+
+        if not email:
+            return Response({'error': 'Veuillez fournir une adresse e-mail.'}, status=status.HTTP_400_BAD_REQUEST)
+
         user = User.objects.filter(email=email).first()
-
         if not user:
-            return Response({'error': 'Aucun compte trouvé avec cet email.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'message': 'Si un compte existe avec cet email, un lien de réinitialisation sera envoyé.'}, status=status.HTTP_200_OK)
 
-        new_password = User.objects.make_random_password()
-        user.set_password(new_password)
-        user.save()
+        # Génération du token de réinitialisation
+        reset_token = self.generate_reset_token(user)
+        reset_link = f"{settings.FRONTEND_URL}/reset-password?token={reset_token}"
 
+        # Envoi de l'email
         send_mail(
             subject='Réinitialisation de votre mot de passe',
-            message=f'Bonjour {user.first_name},\n\nVotre nouveau mot de passe est : {new_password}\n\nVeuillez le modifier après connexion.',
-            from_email='support@monapp.com',
+            message=f'Bonjour {user.first_name},\n\n'
+                   f'Pour réinitialiser votre mot de passe, veuillez cliquer sur le lien suivant :\n'
+                   f'{reset_link}\n\n'
+                   f'Ce lien est valable pendant 24 heures.\n\n'
+                   f'Si vous n\'avez pas demandé cette réinitialisation, ignorez cet email.',
+            from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=[email],
             fail_silently=False,
         )
 
-        return Response({'message': 'Un e-mail avec un nouveau mot de passe a été envoyé.'}, status=status.HTTP_200_OK)
+        return Response({'message': 'Si un compte existe avec cet email, un lien de réinitialisation sera envoyé.'}, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['post'])
+    def confirm_reset_password(self, request):
+        """Confirmer la réinitialisation du mot de passe"""
+        token = request.data.get('token')
+        new_password = request.data.get('password')
+
+        if not token or not new_password:
+            return Response({'error': 'Token et nouveau mot de passe requis'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            # Décodage et validation du token
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
+            user = User.objects.get(id=payload['user_id'])
+
+            # Validation du nouveau mot de passe
+            self.validate_password(new_password)
+
+            # Mise à jour du mot de passe
+            user.set_password(new_password)
+            user.save()
+
+            return Response({'message': 'Mot de passe réinitialisé avec succès.'}, status=status.HTTP_200_OK)
+
+        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+            return Response({'error': 'Lien de réinitialisation invalide ou expiré'}, status=status.HTTP_400_BAD_REQUEST)
+        except User.DoesNotExist:
+            return Response({'error': 'Utilisateur introuvable'}, status=status.HTTP_404_NOT_FOUND)
 
     @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
     def profile(self, request):
@@ -117,6 +233,35 @@ class UserViewSet(viewsets.ViewSet):
             'photo': request.user.customuser.photo.url if request.user.customuser.photo else None,
             'role': request.user.customuser.role.libelleRole
         })
+
+    def validate_password(self, password):
+        """Validation complexe du mot de passe"""
+        if len(password) < 8:
+            raise ValidationError("Le mot de passe doit contenir au moins 8 caractères")
+        if not any(char.isdigit() for char in password):
+            raise ValidationError("Le mot de passe doit contenir au moins un chiffre")
+        if not any(char.isupper() for char in password):
+            raise ValidationError("Le mot de passe doit contenir au moins une majuscule")
+        if not any(char.islower() for char in password):
+            raise ValidationError("Le mot de passe doit contenir au moins une minuscule")
+        if not any(char in "!@#$%^&*(),.?\":{}|<>" for char in password):
+            raise ValidationError("Le mot de passe doit contenir au moins un caractère spécial")
+
+    def validate_image(self, image):
+        """Validation de l'image"""
+        if image.size > MAX_FILE_SIZE:
+            raise ValidationError("L'image ne doit pas dépasser 5MB")
+        if image.content_type not in ALLOWED_IMAGE_TYPES:
+            raise ValidationError("Format d'image non supporté")
+
+    def generate_reset_token(self, user):
+        """Génère un token JWT pour la réinitialisation du mot de passe"""
+        payload = {
+            'user_id': user.id,
+            'exp': datetime.utcnow() + timedelta(hours=24),
+            'token_type': 'password_reset'
+        }
+        return jwt.encode(payload, settings.SECRET_KEY, algorithm='HS256')
 
 # Gestion des boutiques
 class BoutiqueViewSet(viewsets.ModelViewSet):
@@ -395,3 +540,56 @@ class PaiementViewSet(viewsets.ModelViewSet):
         paiement = self.get_object()
         paiement.delete()
         return Response({'message': 'Paiement supprimé avec succès.'}, status=status.HTTP_200_OK)
+
+class ReapprovisionnementViewSet(viewsets.ModelViewSet):
+    """CRUD des réapprovisionnements"""
+    serializer_class = ReapprovisionnementSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        """Lister tous les réapprovisionnements d'une boutique ou ceux d’un fournisseur spécifique"""
+        boutique_id = self.request.query_params.get('boutique', None)
+        fournisseur_id = self.request.query_params.get('fournisseur', None)
+
+        queryset = Reapprovisionnement.objects.all()
+
+        if boutique_id:
+            queryset = queryset.filter(boutique_id=boutique_id)
+
+        if fournisseur_id:
+            queryset = queryset.filter(fournisseur_id=fournisseur_id)
+
+        return queryset
+
+    def perform_create(self, serializer):
+        """Créer un réapprovisionnement"""
+        fournisseur_id = self.request.data.get('fournisseur')
+        boutique_id = self.request.data.get('boutique')
+
+        if not fournisseur_id or not boutique_id:
+            raise ValidationError("Les champs 'fournisseur' et 'boutique' sont obligatoires.")
+
+        if Reapprovisionnement.objects.filter(num_reap=self.request.data.get('num_reap')).exists():
+            raise ValidationError("Un réapprovisionnement avec ce numéro existe déjà.")
+
+        try:
+            fournisseur = Fournisseur.objects.get(id=fournisseur_id)
+        except Fournisseur.DoesNotExist:
+            raise ValidationError("Fournisseur introuvable.")
+
+        try:
+            boutique = Boutique.objects.get(id=boutique_id)
+        except Boutique.DoesNotExist:
+            raise ValidationError("Boutique introuvable.")
+
+        serializer.save(fournisseur=fournisseur, boutique=boutique)
+
+    def perform_update(self, serializer):
+        """Modifier un réapprovisionnement"""
+        instance = self.get_object()
+        num_reap = self.request.data.get('num_reap', instance.num_reap)
+
+        if num_reap != instance.num_reap and Reapprovisionnement.objects.filter(num_reap=num_reap).exists():
+            raise ValidationError("Ce numéro de réapprovisionnement est déjà utilisé.")
+
+        serializer.save()
