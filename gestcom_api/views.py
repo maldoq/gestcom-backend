@@ -13,8 +13,8 @@ from .serializers import CustomUserSerializer
 from django.core.validators import EmailValidator, RegexValidator
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.permissions import IsAuthenticated
-from .models import Boutique, Produit, Fournisseur, Facture, Client, FactureItem, Paiement, Model, Reapprovisionnement
-from .serializers import BoutiqueSerializer,ProduitSerializer,FournisseurSerializer,FactureSerializer,FactureItemSerializer,PaiementSerializer, CustomUserSerializer, ReapprovisionnementSerializer
+from .models import Boutique, Produit, Fournisseur, Facture, Client, FactureItem, Paiement, Model, Reapprovisionnement, Categorie
+from .serializers import BoutiqueSerializer,ProduitSerializer,FournisseurSerializer,FactureSerializer,FactureItemSerializer,PaiementSerializer, CustomUserSerializer, ReapprovisionnementSerializer, CategorieSerializer
 import jwt
 from datetime import datetime, timedelta
 from django.conf import settings
@@ -82,7 +82,7 @@ class UserViewSet(viewsets.ViewSet):
             last_name=lastname
         )
 
-        role, _ = Role.objects.get_or_create(libelleRole="instaff")
+        role, _ = Role.objects.get_or_create(libelleRole="admin")
         custom_user = CustomUser .objects.create(user=user, tel=tel, role=role)
 
         token, _ = Token.objects.get_or_create(user=user)
@@ -591,5 +591,33 @@ class ReapprovisionnementViewSet(viewsets.ModelViewSet):
 
         if num_reap != instance.num_reap and Reapprovisionnement.objects.filter(num_reap=num_reap).exists():
             raise ValidationError("Ce numéro de réapprovisionnement est déjà utilisé.")
+
+        serializer.save()
+
+class CategorieViewSet(viewsets.ModelViewSet):
+    """CRUD des catégories"""
+    serializer_class = CategorieSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        """Lister toutes les catégories"""
+        return Categorie.objects.all()
+
+    def perform_create(self, serializer):
+        """Créer une catégorie"""
+        libelle_categorie = self.request.data.get('libelle_categorie')
+
+        if Categorie.objects.filter(libelle_categorie=libelle_categorie).exists():
+            raise ValidationError("Une catégorie avec ce libellé existe déjà.")
+
+        serializer.save()
+
+    def perform_update(self, serializer):
+        """Modifier une catégorie"""
+        instance = self.get_object()
+        libelle_categorie = self.request.data.get('libelle_categorie', instance.libelle_categorie)
+
+        if libelle_categorie != instance.libelle_categorie and Categorie.objects.filter(libelle_categorie=libelle_categorie).exists():
+            raise ValidationError("Ce libellé de catégorie est déjà utilisé.")
 
         serializer.save()
