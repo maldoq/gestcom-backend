@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import CustomUser, Role
 from django.contrib.auth.models import User
-from .models import Boutique, Produit, CustomUser, Role, Fournisseur, Facture, FactureItem, Paiement, Reapprovisionnement, Categorie
+from .models import Boutique, Produit, CustomUser, Role, Fournisseur, Facture, FactureItem, Paiement, Reapprovisionnement, Categorie, ReapItem
 
 class RoleSerializer(serializers.ModelSerializer):
     class Meta:
@@ -55,3 +55,8 @@ class CategorieSerializer(serializers.ModelSerializer):
     class Meta:
         model = Categorie
         fields = '__all__'  # Include all fields from the Categorie model
+
+class ReapItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ReapItem
+        fields = '__all__'  # Include all fields from the ReapItem model

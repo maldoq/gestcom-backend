@@ -13,8 +13,8 @@ from .serializers import CustomUserSerializer
 from django.core.validators import EmailValidator, RegexValidator
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.permissions import IsAuthenticated
-from .models import Boutique, Produit, Fournisseur, Facture, Client, FactureItem, Paiement, Model, Reapprovisionnement, Categorie
-from .serializers import BoutiqueSerializer,ProduitSerializer,FournisseurSerializer,FactureSerializer,FactureItemSerializer,PaiementSerializer, CustomUserSerializer, ReapprovisionnementSerializer, CategorieSerializer
+from .models import Boutique, Produit, Fournisseur, Facture, Client, FactureItem, Paiement, Model, Reapprovisionnement, Categorie, ReapItem
+from .serializers import BoutiqueSerializer,ProduitSerializer,FournisseurSerializer,FactureSerializer,FactureItemSerializer,PaiementSerializer, CustomUserSerializer, ReapprovisionnementSerializer, CategorieSerializer, ReapItemSerializer
 import jwt
 from datetime import datetime, timedelta
 from django.conf import settings
@@ -621,3 +621,47 @@ class CategorieViewSet(viewsets.ModelViewSet):
             raise ValidationError("Ce libellé de catégorie est déjà utilisé.")
 
         serializer.save()
+
+class ReapItemViewSet(viewsets.ModelViewSet):
+    """CRUD des items de réapprovisionnement"""
+    serializer_class = ReapItemSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        """Lister tous les items de réapprovisionnement ou ceux d’un réapprovisionnement spécifique"""
+        reappro_id = self.request.query_params.get('reappro', None)
+        if reappro_id:
+            return ReapItem.objects.filter(reappro_id=reappro_id)
+        return ReapItem.objects.all()
+
+    def perform_create(self, serializer):
+        """Créer un item de réapprovisionnement"""
+        reappro_id = self.request.data.get('reappro')
+        produit_id = self.request.data.get('produit')
+
+        if not reappro_id or not produit_id:
+            raise ValidationError("Les champs 'reappro' et 'produit' sont obligatoires.")
+
+        try:
+            reappro = Reapprovisionnement.objects.get(id=reappro_id)
+        except Reapprovisionnement.DoesNotExist:
+            raise ValidationError("Réapprovisionnement introuvable.")
+
+        try:
+            produit = Produit.objects.get(id=produit_id)
+        except Produit.DoesNotExist:
+            raise ValidationError("Produit introuvable.")
+
+        serializer.save(reappro=reappro, produit=produit)
+
+    def perform_update(self, serializer):
+        """Modifier un item de réapprovisionnement"""
+        instance = self.get_object()
+        produit_id = self.request.data.get('produit', instance.produit.id)
+
+        try:
+            produit = Produit.objects.get(id=produit_id)
+        except Produit.DoesNotExist:
+            raise ValidationError("Produit introuvable.")
+
+        serializer.save(produit=produit)
