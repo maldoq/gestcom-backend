@@ -19,6 +19,9 @@ import jwt
 from datetime import datetime, timedelta
 from django.conf import settings
 from django.core.cache import cache
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
+
 
 
 # Constantes
@@ -30,6 +33,22 @@ ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif']
 class UserViewSet(viewsets.ViewSet):
     """Gestion des utilisateurs : Inscription, Connexion, Profil et Mise à jour"""
 
+    @swagger_auto_schema(
+        operation_description="Inscription d'un utilisateur",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['lastname', 'firstname', 'email', 'tel', 'password', 'confirmation'],
+            properties={
+                'lastname': openapi.Schema(type=openapi.TYPE_STRING),
+                'firstname': openapi.Schema(type=openapi.TYPE_STRING),
+                'email': openapi.Schema(type=openapi.TYPE_STRING, format="email"),
+                'tel': openapi.Schema(type=openapi.TYPE_STRING),
+                'password': openapi.Schema(type=openapi.TYPE_STRING, format="password"),
+                'confirmation': openapi.Schema(type=openapi.TYPE_STRING, format="password"),
+            },
+        ),
+        responses={201: "Utilisateur créé avec succès"}
+    )
     @action(detail=False, methods=['post'])
     def register(self, request):
         """Inscription d'un utilisateur"""
@@ -89,6 +108,18 @@ class UserViewSet(viewsets.ViewSet):
 
         return Response({'token': token.key, 'user': CustomUserSerializer(custom_user).data}, status=status.HTTP_201_CREATED)
 
+    @swagger_auto_schema(
+        operation_description="Connexion d'un utilisateur",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['email', 'password'],
+            properties={
+                'email': openapi.Schema(type=openapi.TYPE_STRING, format="email"),
+                'password': openapi.Schema(type=openapi.TYPE_STRING, format="password"),
+            },
+        ),
+        responses={200: "Connexion réussie"}
+    )
     @action(detail=False, methods=['post'])
     def login(self, request):
         """Connexion d'un utilisateur"""
@@ -117,6 +148,20 @@ class UserViewSet(viewsets.ViewSet):
 
         return Response({'token': token.key, 'user_id': user.id, 'email': user.email}, status=status.HTTP_200_OK)
 
+    @swagger_auto_schema(
+        operation_description="Mise à jour du profil utilisateur",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'lastname': openapi.Schema(type=openapi.TYPE_STRING),
+                'firstname': openapi.Schema(type=openapi.TYPE_STRING),
+                'email': openapi.Schema(type=openapi.TYPE_STRING, format="email"),
+                'password': openapi.Schema(type=openapi.TYPE_STRING, format="password"),
+                'photo': openapi.Schema(type=openapi.TYPE_FILE),
+            },
+        ),
+        responses={200: "Profil mis à jour avec succès"}
+    )
     @action(detail=False, methods=['put'], permission_classes=[IsAuthenticated])
     def update_profile(self, request):
         """Mise à jour des informations de l'utilisateur"""
@@ -164,6 +209,17 @@ class UserViewSet(viewsets.ViewSet):
 
         return Response({'message': 'Informations mises à jour avec succès.'}, status=status.HTTP_200_OK)
 
+    @swagger_auto_schema(
+        operation_description="Réinitialisation du mot de passe - Demande",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['email'],
+            properties={
+                'email': openapi.Schema(type=openapi.TYPE_STRING, format="email"),
+            },
+        ),
+        responses={200: "Code de réinitialisation envoyé"}
+    )
     @action(detail=False, methods=['post'])
     def reset_password(self, request):
         """Réinitialisation du mot de passe"""
@@ -195,6 +251,19 @@ class UserViewSet(viewsets.ViewSet):
 
         return Response({'message': 'Si un compte existe avec cet email, un lien de réinitialisation sera envoyé.'}, status=status.HTTP_200_OK)
 
+    @swagger_auto_schema(
+        operation_description="Confirmer la réinitialisation du mot de passe",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['email', 'code', 'new_password'],
+            properties={
+                'email': openapi.Schema(type=openapi.TYPE_STRING, format="email"),
+                'code': openapi.Schema(type=openapi.TYPE_STRING),
+                'new_password': openapi.Schema(type=openapi.TYPE_STRING, format="password"),
+            },
+        ),
+        responses={200: "Mot de passe réinitialisé avec succès"}
+    )
     @action(detail=False, methods=['post'])
     def confirm_reset_password(self, request):
         """Confirmer la réinitialisation du mot de passe"""
@@ -223,6 +292,10 @@ class UserViewSet(viewsets.ViewSet):
         except User.DoesNotExist:
             return Response({'error': 'Utilisateur introuvable'}, status=status.HTTP_404_NOT_FOUND)
 
+    @swagger_auto_schema(
+        operation_description="Récupérer le profil utilisateur",
+        responses={200: CustomUserSerializer()}
+    )
     @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
     def profile(self, request):
         """Affichage des informations du profil utilisateur"""
@@ -277,6 +350,19 @@ class BoutiqueViewSet(viewsets.ModelViewSet):
         """Création d'une boutique"""
         serializer.save(manager=self.request.user.customuser)
 
+    @swagger_auto_schema(
+        operation_description="Mise à jour d'une boutique",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'nom_shop': openapi.Schema(type=openapi.TYPE_STRING),
+                'adresse_shop': openapi.Schema(type=openapi.TYPE_STRING),
+                'descript_shop': openapi.Schema(type=openapi.TYPE_STRING),
+                'logo': openapi.Schema(type=openapi.TYPE_FILE),
+            },
+        ),
+        responses={200: "Boutique mise à jour avec succès"}
+    )
     @action(detail=True, methods=['put'])
     def update_boutique(self, request, pk=None):
         """Mise à jour d'une boutique"""
@@ -299,6 +385,10 @@ class BoutiqueViewSet(viewsets.ModelViewSet):
 
         return Response({'message': 'Boutique mise à jour avec succès.', 'boutique': BoutiqueSerializer(boutique).data}, status=status.HTTP_200_OK)
 
+    @swagger_auto_schema(
+        operation_description="Suppression d'une boutique",
+        responses={200: "Boutique supprimée avec succès"}
+    )
     @action(detail=True, methods=['delete'])
     def delete_boutique(self, request, pk=None):
         """Suppression d'une boutique"""
@@ -330,6 +420,11 @@ class ProduitViewSet(viewsets.ModelViewSet):
         except Boutique.DoesNotExist:
             raise Response({'error': 'La boutique spécifiée n\'existe pas ou vous n\'y avez pas accès.'}, status=status.HTTP_400_BAD_REQUEST)
 
+    @swagger_auto_schema(
+        operation_description="Mise à jour d'un produit",
+        request_body=ProduitSerializer,
+        responses={200: "Produit mis à jour avec succès"}
+    )
     @action(detail=True, methods=['put'])
     def update_produit(self, request, pk=None):
         """Mise à jour d'un produit"""
@@ -345,6 +440,10 @@ class ProduitViewSet(viewsets.ModelViewSet):
             return Response({'message': 'Produit mis à jour avec succès.', 'produit': serializer.data}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    @swagger_auto_schema(
+        operation_description="Suppression d'un produit",
+        responses={200: "Produit supprimé avec succès"}
+    )
     @action(detail=True, methods=['delete'])
     def delete_produit(self, request, pk=None):
         """Suppression d'un produit"""
@@ -378,6 +477,18 @@ class FournisseurViewSet(viewsets.ModelViewSet):
         except Boutique.DoesNotExist:
             return Response({'error': 'La boutique spécifiée n\'existe pas ou vous n\'y avez pas accès.'}, status=status.HTTP_400_BAD_REQUEST)
 
+    @swagger_auto_schema(
+        operation_description="Mise à jour d'un fournisseur",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'nom_fournisseur': openapi.Schema(type=openapi.TYPE_STRING),
+                'adresse_fournisseur': openapi.Schema(type=openapi.TYPE_STRING),
+                'contact_fournisseur': openapi.Schema(type=openapi.TYPE_STRING),
+            },
+        ),
+        responses={200: "Fournisseur mis à jour avec succès"}
+    )
     @action(detail=True, methods=['put'])
     def update_fournisseur(self, request, pk=None):
         """Mise à jour d'un fournisseur"""
@@ -393,6 +504,10 @@ class FournisseurViewSet(viewsets.ModelViewSet):
             return Response({'message': 'Fournisseur mis à jour avec succès.', 'fournisseur': serializer.data}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    @swagger_auto_schema(
+        operation_description="Suppression d'un fournisseur",
+        responses={200: "Fournisseur supprimé avec succès"}
+    )
     @action(detail=True, methods=['delete'])
     def delete_fournisseur(self, request, pk=None):
         """Suppression d'un fournisseur"""
@@ -431,6 +546,18 @@ class FactureViewSet(viewsets.ModelViewSet):
         except Client.DoesNotExist:
             return Response({'error': 'Le client spécifié n\'existe pas.'}, status=status.HTTP_400_BAD_REQUEST)
 
+    @swagger_auto_schema(
+        operation_description="Mise à jour d'une facture",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'total': openapi.Schema(type=openapi.TYPE_NUMBER, description="Total de la facture"),
+                'status': openapi.Schema(type=openapi.TYPE_STRING, description="Statut de la facture"),
+                'date_emission': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_DATE, description="Date d'émission"),
+            },
+        ),
+        responses={200: "Facture mise à jour avec succès", 400: "Erreur de validation"}
+    )
     @action(detail=True, methods=['put'])
     def update_facture(self, request, pk=None):
         """Mise à jour d'une facture"""
@@ -446,6 +573,10 @@ class FactureViewSet(viewsets.ModelViewSet):
             return Response({'message': 'Facture mise à jour avec succès.', 'facture': serializer.data}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    @swagger_auto_schema(
+        operation_description="Suppression d'une facture",
+        responses={200: "Facture supprimée avec succès", 403: "Non autorisé"}
+    )
     @action(detail=True, methods=['delete'])
     def delete_facture(self, request, pk=None):
         """Suppression d'une facture"""
@@ -470,6 +601,23 @@ class FactureItemViewSet(viewsets.ModelViewSet):
             return FactureItem.objects.filter(facture_id=facture_id)
         return FactureItem.objects.none()  # Return an empty queryset if no facture_id is provided
 
+    @swagger_auto_schema(
+        operation_description="Création d'un item de facture",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['facture_id', 'produit_id', 'quantite', 'prix_unitaire'],
+            properties={
+                'facture_id': openapi.Schema(type=openapi.TYPE_INTEGER, description="ID de la facture"),
+                'produit_id': openapi.Schema(type=openapi.TYPE_INTEGER, description="ID du produit"),
+                'quantite': openapi.Schema(type=openapi.TYPE_INTEGER, description="Quantité du produit"),
+                'prix_unitaire': openapi.Schema(type=openapi.TYPE_NUMBER, format=openapi.FORMAT_FLOAT, description="Prix unitaire"),
+            },
+        ),
+        responses={
+            201: "Item de facture créé avec succès",
+            400: "La facture spécifiée n'existe pas"
+        }
+    )
     def perform_create(self, serializer):
         """Création d'un item de facture"""
         facture_id = self.request.data.get('facture_id')
@@ -479,6 +627,20 @@ class FactureItemViewSet(viewsets.ModelViewSet):
         except Facture.DoesNotExist:
             return Response({'error': 'La facture spécifiée n\'existe pas.'}, status=status.HTTP_400_BAD_REQUEST)
 
+    @swagger_auto_schema(
+        operation_description="Mise à jour d'un item de facture",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'quantite': openapi.Schema(type=openapi.TYPE_INTEGER, description="Nouvelle quantité"),
+                'prix_unitaire': openapi.Schema(type=openapi.TYPE_NUMBER, format=openapi.FORMAT_FLOAT, description="Nouveau prix unitaire"),
+            },
+        ),
+        responses={
+            200: "Item de facture mis à jour avec succès",
+            400: "Erreur de validation"
+        }
+    )
     @action(detail=True, methods=['put'])
     def update_facture_item(self, request, pk=None):
         """Mise à jour d'un item de facture"""
@@ -490,6 +652,12 @@ class FactureItemViewSet(viewsets.ModelViewSet):
             return Response({'message': 'Item de facture mis à jour avec succès.', 'facture_item': serializer.data}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    @swagger_auto_schema(
+        operation_description="Suppression d'un item de facture",
+        responses={
+            200: "Item de facture supprimé avec succès"
+        }
+    )
     @action(detail=True, methods=['delete'])
     def delete_facture_item(self, request, pk=None):
         """Suppression d'un item de facture"""
@@ -509,6 +677,22 @@ class PaiementViewSet(viewsets.ModelViewSet):
             return Paiement.objects.filter(facture_id=facture_id)
         return Paiement.objects.none()  # Return an empty queryset if no facture_id is provided
 
+    @swagger_auto_schema(
+        operation_description="Création d'un paiement",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['facture_id', 'mode_paie_id', 'montant'],
+            properties={
+                'facture_id': openapi.Schema(type=openapi.TYPE_INTEGER, description="ID de la facture"),
+                'mode_paie_id': openapi.Schema(type=openapi.TYPE_INTEGER, description="ID du mode de paiement"),
+                'montant': openapi.Schema(type=openapi.TYPE_NUMBER, format=openapi.FORMAT_FLOAT, description="Montant du paiement"),
+            },
+        ),
+        responses={
+            201: "Paiement créé avec succès",
+            400: "La facture ou le mode de paiement spécifié n'existe pas"
+        }
+    )
     def perform_create(self, serializer):
         """Création d'un paiement"""
         facture_id = self.request.data.get('facture_id')
@@ -523,6 +707,19 @@ class PaiementViewSet(viewsets.ModelViewSet):
         except Model.DoesNotExist:
             return Response({'error': 'Le mode de paiement spécifié n\'existe pas.'}, status=status.HTTP_400_BAD_REQUEST)
 
+    @swagger_auto_schema(
+        operation_description="Mise à jour d'un paiement",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'montant': openapi.Schema(type=openapi.TYPE_NUMBER, format=openapi.FORMAT_FLOAT, description="Nouveau montant"),
+            },
+        ),
+        responses={
+            200: "Paiement mis à jour avec succès",
+            400: "Erreur de validation"
+        }
+    )
     @action(detail=True, methods=['put'])
     def update_paiement(self, request, pk=None):
         """Mise à jour d'un paiement"""
@@ -534,6 +731,12 @@ class PaiementViewSet(viewsets.ModelViewSet):
             return Response({'message': 'Paiement mis à jour avec succès.', 'paiement': serializer.data}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    @swagger_auto_schema(
+        operation_description="Suppression d'un paiement",
+        responses={
+            200: "Paiement supprimé avec succès"
+        }
+    )
     @action(detail=True, methods=['delete'])
     def delete_paiement(self, request, pk=None):
         """Suppression d'un paiement"""
@@ -546,6 +749,22 @@ class ReapprovisionnementViewSet(viewsets.ModelViewSet):
     serializer_class = ReapprovisionnementSerializer
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(
+        operation_description="Lister tous les réapprovisionnements d'une boutique ou ceux d’un fournisseur spécifique",
+        manual_parameters=[
+            openapi.Parameter(
+                'boutique', openapi.IN_QUERY,
+                description="ID de la boutique pour filtrer les réapprovisionnements",
+                type=openapi.TYPE_INTEGER
+            ),
+            openapi.Parameter(
+                'fournisseur', openapi.IN_QUERY,
+                description="ID du fournisseur pour filtrer les réapprovisionnements",
+                type=openapi.TYPE_INTEGER
+            )
+        ],
+        responses={200: ReapprovisionnementSerializer(many=True)}
+    )
     def get_queryset(self):
         """Lister tous les réapprovisionnements d'une boutique ou ceux d’un fournisseur spécifique"""
         boutique_id = self.request.query_params.get('boutique', None)
@@ -561,6 +780,22 @@ class ReapprovisionnementViewSet(viewsets.ModelViewSet):
 
         return queryset
 
+    @swagger_auto_schema(
+        operation_description="Créer un réapprovisionnement",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['fournisseur', 'boutique', 'num_reap'],
+            properties={
+                'fournisseur': openapi.Schema(type=openapi.TYPE_INTEGER, description="ID du fournisseur"),
+                'boutique': openapi.Schema(type=openapi.TYPE_INTEGER, description="ID de la boutique"),
+                'num_reap': openapi.Schema(type=openapi.TYPE_STRING, description="Numéro unique du réapprovisionnement"),
+            }
+        ),
+        responses={
+            201: "Réapprovisionnement créé avec succès",
+            400: "Erreur de validation (fournisseur introuvable, boutique introuvable, numéro déjà utilisé)"
+        }
+    )
     def perform_create(self, serializer):
         """Créer un réapprovisionnement"""
         fournisseur_id = self.request.data.get('fournisseur')
@@ -584,6 +819,19 @@ class ReapprovisionnementViewSet(viewsets.ModelViewSet):
 
         serializer.save(fournisseur=fournisseur, boutique=boutique)
 
+    @swagger_auto_schema(
+        operation_description="Modifier un réapprovisionnement",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'num_reap': openapi.Schema(type=openapi.TYPE_STRING, description="Nouveau numéro unique du réapprovisionnement"),
+            }
+        ),
+        responses={
+            200: "Réapprovisionnement mis à jour avec succès",
+            400: "Erreur de validation (numéro déjà utilisé)"
+        }
+    )
     def perform_update(self, serializer):
         """Modifier un réapprovisionnement"""
         instance = self.get_object()
@@ -599,10 +847,28 @@ class CategorieViewSet(viewsets.ModelViewSet):
     serializer_class = CategorieSerializer
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(
+        operation_description="Lister toutes les catégories",
+        responses={200: CategorieSerializer(many=True)}
+    )
     def get_queryset(self):
         """Lister toutes les catégories"""
         return Categorie.objects.all()
 
+    @swagger_auto_schema(
+        operation_description="Créer une catégorie",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['libelle_categorie'],
+            properties={
+                'libelle_categorie': openapi.Schema(type=openapi.TYPE_STRING, description="Libellé unique de la catégorie"),
+            }
+        ),
+        responses={
+            201: "Catégorie créée avec succès",
+            400: "Erreur de validation (libellé déjà utilisé)"
+        }
+    )
     def perform_create(self, serializer):
         """Créer une catégorie"""
         libelle_categorie = self.request.data.get('libelle_categorie')
@@ -612,6 +878,19 @@ class CategorieViewSet(viewsets.ModelViewSet):
 
         serializer.save()
 
+    @swagger_auto_schema(
+        operation_description="Modifier une catégorie",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'libelle_categorie': openapi.Schema(type=openapi.TYPE_STRING, description="Nouveau libellé unique de la catégorie"),
+            }
+        ),
+        responses={
+            200: "Catégorie mise à jour avec succès",
+            400: "Erreur de validation (libellé déjà utilisé)"
+        }
+    )
     def perform_update(self, serializer):
         """Modifier une catégorie"""
         instance = self.get_object()
@@ -627,6 +906,18 @@ class ReapItemViewSet(viewsets.ModelViewSet):
     serializer_class = ReapItemSerializer
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(
+        operation_description="Lister tous les items de réapprovisionnement ou ceux d’un réapprovisionnement spécifique.",
+        manual_parameters=[
+            openapi.Parameter(
+                'reappro',
+                openapi.IN_QUERY,
+                description="ID du réapprovisionnement pour filtrer les items",
+                type=openapi.TYPE_INTEGER
+            )
+        ],
+        responses={200: ReapItemSerializer(many=True)}
+    )
     def get_queryset(self):
         """Lister tous les items de réapprovisionnement ou ceux d’un réapprovisionnement spécifique"""
         reappro_id = self.request.query_params.get('reappro', None)
@@ -634,6 +925,21 @@ class ReapItemViewSet(viewsets.ModelViewSet):
             return ReapItem.objects.filter(reappro_id=reappro_id)
         return ReapItem.objects.all()
 
+    @swagger_auto_schema(
+        operation_description="Créer un item de réapprovisionnement",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['reappro', 'produit'],
+            properties={
+                'reappro': openapi.Schema(type=openapi.TYPE_INTEGER, description="ID du réapprovisionnement"),
+                'produit': openapi.Schema(type=openapi.TYPE_INTEGER, description="ID du produit"),
+            }
+        ),
+        responses={
+            201: "Item de réapprovisionnement créé avec succès",
+            400: "Erreur de validation (réapprovisionnement ou produit introuvable)"
+        }
+    )
     def perform_create(self, serializer):
         """Créer un item de réapprovisionnement"""
         reappro_id = self.request.data.get('reappro')
@@ -654,6 +960,19 @@ class ReapItemViewSet(viewsets.ModelViewSet):
 
         serializer.save(reappro=reappro, produit=produit)
 
+    @swagger_auto_schema(
+        operation_description="Modifier un item de réapprovisionnement",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'produit': openapi.Schema(type=openapi.TYPE_INTEGER, description="ID du nouveau produit"),
+            }
+        ),
+        responses={
+            200: "Item de réapprovisionnement mis à jour avec succès",
+            400: "Erreur de validation (produit introuvable)"
+        }
+    )
     def perform_update(self, serializer):
         """Modifier un item de réapprovisionnement"""
         instance = self.get_object()
