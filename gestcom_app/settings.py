@@ -27,7 +27,7 @@ SECRET_KEY = 'django-insecure-t-@rqvty9oc#!1!ay+zpi#0q$7o4%#howzos4a&we4(@41n5as
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["*"]
 
 
 # Application definition
@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'drf_yasg',
     'gestcom_api',
+    'corsheaders',
 ]
 
 MIDDLEWARE = [
@@ -53,6 +54,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
 ]
 
 ROOT_URLCONF = 'gestcom_app.urls'
@@ -115,6 +117,27 @@ REST_FRAMEWORK = {
     ),
 }
 
+# CORS_ALLOWED_ORIGINS = [
+#     "http://localhost:8081",  # Expo development server
+#     "http://your-ip-address:8081",  # If testing on a device, replace with your machine's IP
+# ]
+CORS_ALLOW_ALL_ORIGINS = True
+
+CORS_ALLOW_HEADERS = [
+    'access-control-allow-origin',
+    'content-type',
+]
+
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+
+ROOT_URLCONF = 'gestcom_app.urls'
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.1/topics/i18n/

@@ -30,8 +30,10 @@ LOGIN_TIMEOUT = 300  # 5 minutes
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
 ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif']
 
-class UserViewSet(viewsets.ViewSet):
+class UserViewSet(viewsets.ModelViewSet):
     """Gestion des utilisateurs : Inscription, Connexion, Profil et Mise à jour"""
+    queryset = CustomUser.objects.all()  # ✅ Add this line
+    serializer_class = CustomUserSerializer
 
     @swagger_auto_schema(
         operation_description="Inscription d'un utilisateur",
