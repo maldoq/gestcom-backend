@@ -117,10 +117,10 @@ REST_FRAMEWORK = {
     ),
 }
 
-# CORS_ALLOWED_ORIGINS = [
-#     "http://localhost:8081",  # Expo development server
-#     "http://your-ip-address:8081",  # If testing on a device, replace with your machine's IP
-# ]
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:8081",  # Expo development server
+    "http://your-ip-address:8081",  # If testing on a device, replace with your machine's IP
+]
 CORS_ALLOW_ALL_ORIGINS = True
 
 CORS_ALLOW_HEADERS = [

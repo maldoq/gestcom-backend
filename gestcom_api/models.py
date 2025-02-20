@@ -140,6 +140,7 @@ class Facture(models.Model):
     def save(self, *args, **kwargs):
         if not self.id_fact:  # Only set id_fact if it's not set already
             self.id_fact = self.generate_id_fact()
+            self.num_fact = self.id_fact
         super(Facture, self).save(*args, **kwargs)
 
     def __str__(self):

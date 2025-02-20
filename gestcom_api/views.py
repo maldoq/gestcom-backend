@@ -13,8 +13,8 @@ from .serializers import CustomUserSerializer
 from django.core.validators import EmailValidator, RegexValidator
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.permissions import IsAuthenticated
-from .models import Boutique, Produit, Fournisseur, Facture, Client, FactureItem, Paiement, Model, Reapprovisionnement, Categorie, ReapItem
-from .serializers import BoutiqueSerializer,ProduitSerializer,FournisseurSerializer,FactureSerializer,FactureItemSerializer,PaiementSerializer, CustomUserSerializer, ReapprovisionnementSerializer, CategorieSerializer, ReapItemSerializer
+from .models import Boutique, Produit, Fournisseur, Facture, Client, FactureItem, Paiement, Model, Reapprovisionnement, Categorie, ReapItem, Type
+from .serializers import BoutiqueSerializer,ProduitSerializer,FournisseurSerializer,FactureSerializer,FactureItemSerializer,PaiementSerializer, CustomUserSerializer, ReapprovisionnementSerializer, CategorieSerializer, ReapItemSerializer,TypeSerializer, ClientSerializer
 import jwt
 from datetime import datetime, timedelta
 from django.conf import settings
@@ -986,3 +986,161 @@ class ReapItemViewSet(viewsets.ModelViewSet):
             raise ValidationError("Produit introuvable.")
 
         serializer.save(produit=produit)
+
+class TypeViewSet(viewsets.ModelViewSet):
+    """CRUD des types"""
+    serializer_class = TypeSerializer
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="Lister tous les types ou un type spécifique par ID.",
+        manual_parameters=[
+            openapi.Parameter(
+                'id',
+                openapi.IN_QUERY,
+                description="ID du type pour filtrer",
+                type=openapi.TYPE_INTEGER
+            )
+        ],
+        responses={200: TypeSerializer(many=True)}
+    )
+    def get_queryset(self):
+        """Lister tous les types ou un type spécifique"""
+        type_id = self.request.query_params.get('id', None)
+        if type_id:
+            return Type.objects.filter(id=type_id)
+        return Type.objects.all()
+
+    @swagger_auto_schema(
+        operation_description="Créer un type.",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['libelle_type'],
+            properties={
+                'libelle_type': openapi.Schema(type=openapi.TYPE_STRING, description="Libellé du type"),
+                'descript_type': openapi.Schema(type=openapi.TYPE_STRING, description="Description du type"),
+                'status': openapi.Schema(type=openapi.TYPE_BOOLEAN, description="Statut du type"),
+            }
+        ),
+        responses={
+            201: "Type créé avec succès",
+            400: "Erreur de validation"
+        }
+    )
+    def perform_create(self, serializer):
+        """Créer un type"""
+        libelle_type = self.request.data.get('libelle_type')
+
+        if not libelle_type:
+            raise ValidationError("Le champ 'libelle_type' est obligatoire.")
+
+        serializer.save()
+
+    @swagger_auto_schema(
+        operation_description="Modifier un type.",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'libelle_type': openapi.Schema(type=openapi.TYPE_STRING, description="Libellé du type"),
+                'descript_type': openapi.Schema(type=openapi.TYPE_STRING, description="Description du type"),
+                'status': openapi.Schema(type=openapi.TYPE_BOOLEAN, description="Statut du type"),
+            }
+        ),
+        responses={
+            200: "Type mis à jour avec succès",
+            400: "Erreur de validation"
+        }
+    )
+    def perform_update(self, serializer):
+        """Modifier un type"""
+        instance = self.get_object()
+        libelle_type = self.request.data.get('libelle_type', instance.libelle_type)
+
+        if not libelle_type:
+            raise ValidationError("Le champ 'libelle_type' est obligatoire.")
+
+        serializer.save()
+
+class ClientViewSet(viewsets.ModelViewSet):
+    """CRUD des clients"""
+    serializer_class = ClientSerializer
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="Lister tous les clients ou filtrer par boutique.",
+        manual_parameters=[
+            openapi.Parameter(
+                'boutique',
+                openapi.IN_QUERY,
+                description="ID de la boutique pour filtrer les clients",
+                type=openapi.TYPE_INTEGER
+            )
+        ],
+        responses={200: ClientSerializer(many=True)}
+    )
+    def get_queryset(self):
+        """Lister tous les clients ou ceux d’une boutique spécifique"""
+        boutique_id = self.request.query_params.get('boutique', None)
+        if boutique_id:
+            return Client.objects.filter(boutique_id=boutique_id)
+        return Client.objects.all()
+
+    @swagger_auto_schema(
+        operation_description="Créer un client.",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['nom_client', 'email_client', 'tel_client', 'boutique'],
+            properties={
+                'nom_client': openapi.Schema(type=openapi.TYPE_STRING, description="Nom du client"),
+                'email_client': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_EMAIL, description="Email du client"),
+                'tel_client': openapi.Schema(type=openapi.TYPE_STRING, description="Numéro de téléphone"),
+                'adresse_client': openapi.Schema(type=openapi.TYPE_STRING, description="Adresse du client"),
+                'boutique': openapi.Schema(type=openapi.TYPE_INTEGER, description="ID de la boutique"),
+                'status': openapi.Schema(type=openapi.TYPE_BOOLEAN, description="Statut du client")
+            }
+        ),
+        responses={
+            201: "Client créé avec succès",
+            400: "Erreur de validation"
+        }
+    )
+    def perform_create(self, serializer):
+        """Créer un client"""
+        boutique_id = self.request.data.get('boutique')
+
+        try:
+            boutique = Boutique.objects.get(id=boutique_id)
+        except Boutique.DoesNotExist:
+            raise ValidationError("Boutique introuvable.")
+
+        serializer.save(boutique=boutique)
+
+    @swagger_auto_schema(
+        operation_description="Modifier un client.",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'nom_client': openapi.Schema(type=openapi.TYPE_STRING, description="Nom du client"),
+                'email_client': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_EMAIL, description="Email du client"),
+                'tel_client': openapi.Schema(type=openapi.TYPE_STRING, description="Numéro de téléphone"),
+                'adresse_client': openapi.Schema(type=openapi.TYPE_STRING, description="Adresse du client"),
+                'boutique': openapi.Schema(type=openapi.TYPE_INTEGER, description="ID de la boutique"),
+                'status': openapi.Schema(type=openapi.TYPE_BOOLEAN, description="Statut du client")
+            }
+        ),
+        responses={
+            200: "Client mis à jour avec succès",
+            400: "Erreur de validation"
+        }
+    )
+    def perform_update(self, serializer):
+        """Modifier un client"""
+        instance = self.get_object()
+        boutique_id = self.request.data.get('boutique', instance.boutique.id)
+
+        try:
+            boutique = Boutique.objects.get(id=boutique_id)
+        except Boutique.DoesNotExist:
+            raise ValidationError("Boutique introuvable.")
+
+        serializer.save(boutique=boutique)
